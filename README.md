@@ -32,4 +32,16 @@ Out of the box, the following commands are automatically routed:
 
 Ensure `proxychains4` and `curl` are installed:
 ```bash
-sudo apt update && sudo apt install -y proxychains4 curl
+sudo apt update && sudo apt install -y proxychains4 curl git wget
+
+nano /usr/local/bin/network_speed_monitor.sh
+
+chmod +x /usr/local/bin/network_speed_monitor.sh
+
+./usr/local/bin/network_speed_monitor.sh
+
+
+
+
+
+
