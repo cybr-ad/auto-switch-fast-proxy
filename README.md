@@ -7,17 +7,15 @@ Ensure `proxychains4` and `curl` are installed:
 ```bash
 sudo apt update && sudo apt install -y proxychains4 curl git wget
 ```
-*Ensure your proxy is configured in `/etc/proxychains4.conf`.*
+*Ensure your proxy is configured in `/etc/proxychains4.conf` and setup fast proxy.*
 ---
-### 2. Monitor Setup
-Copy the script `/usr/local/bin/`:
-```bash
-scp network_speed_monitor.sh  /usr/local/bin/
-```
+### 2. Main Setup
+Run the script `setup_dynamic_proxy.sh` and it will make a `network_speed_monitor.sh` in `/usr/local/bin` directory.
+
 Make it executable and run an initial test:
 ```bash
-sudo chmod +x /usr/local/bin/network_speed_monitor.sh
-sudo /usr/local/bin/network_speed_monitor.sh
+sudo chmod +x network_speed_monitor.sh
+sudo ./network_speed_monitor.sh
 ```
 Verify connection status:
 ```bash
@@ -26,6 +24,8 @@ cat /run/fastest_connection
 ```
 ---
 ### 3. Verification
+Check this file should here `/usr/local/bin/` :
+`apt`, `apt-get`, `wget`, `curl`, `git`, `network_speed_monitor.sh`
 Test that commands route through the proxy automatically:
 ```bash
 # Check your IP (should show proxy IP)
@@ -36,6 +36,8 @@ git clone https://github.com/six2dez/reconftw.git /tmp/test-repo --depth=1
 rm -rf /tmp/test-repo
 ```
 ---
+If you find any problem just reboot your system. Make sure `proxychains4` giving you proper speed before installation.
+
 ## Uninstallation (Restore Default)
 To remove all wrappers and restore original system defaults:
 ```bash
