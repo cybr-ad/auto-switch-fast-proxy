@@ -1,4 +1,5 @@
 # Dynamic Proxychains Router
+After setting this script you don't need to manually put `proxychains4` every command when you are downloading. It completely depends on your proxy speed.
 Automatically routes CLI downloads (`git`, `apt`, `curl`, `wget`) through `proxychains4` whenever the proxy is faster, with seamless fallback to direct internet. After installing proxychains4 , `nano /etc/proxychains4.conf` and remove hash before `strict_chain` then save it and exit .
 
 ## Quick Setup
