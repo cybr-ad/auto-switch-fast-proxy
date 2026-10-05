@@ -39,6 +39,14 @@ rm -rf /tmp/test-repo
 ---
 If you find any problem just reboot your system. Make sure `proxychains4` giving you proper speed before installation.
 
+## Boosting Speed
+For better performance select better dns server. 
+`nano /etc/resolv.conf` then comment everything else and paste this :
+```
+nameserver 1.1.1.1
+nameserver 8.8.8.8
+```
+
 ## Uninstallation (Restore Default)
 To remove all wrappers and restore original system defaults:
 ```bash
