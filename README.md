@@ -52,4 +52,5 @@ sudo rm -f /usr/local/bin/apt \
 
 sudo rm -f /run/fastest_connection /var/log/network_speed_monitor.log
 ```
+This project is to bypass BDIX proxy and ensure full speed from BDIX, just you have add proxy and credentials in `/etc/proxychains4.conf` file and you are good to enjoy faster internet 🚀.
 
