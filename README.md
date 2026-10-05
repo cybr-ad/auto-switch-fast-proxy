@@ -40,6 +40,9 @@ chmod +x /usr/local/bin/network_speed_monitor.sh
 
 ./usr/local/bin/network_speed_monitor.sh
 
+tail -n 1 /var/log/network_speed_monitor.log
+
+cat /run/fastest_connection
 
 
 
