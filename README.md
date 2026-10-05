@@ -12,7 +12,7 @@ sudo apt update && sudo apt install -y proxychains4 curl git wget
 ### 2. Monitor Setup
 Copy the script `/usr/local/bin/`:
 ```bash
-cp network_speed_monitor.sh  /usr/local/bin/
+scp network_speed_monitor.sh  /usr/local/bin/
 ```
 Make it executable and run an initial test:
 ```bash
