@@ -1,30 +1,4 @@
-## Replace the redsocks config file 
-`nano /etc/redsocks.conf` and paste it change ip , port, user, passwd 
 
-```
-base {
-    log_debug = off;
-    log_info = off;
-    log = "file:/var/log/redsocks.log";
-    daemon = on;
-    redirector = iptables;
-}
-
-redsocks {
-    local_ip = 127.0.0.1;
-    local_port = 12345;
-
-    ip = x.x.x.x;
-    port = yyyy;
-    type = socks5;
-
-    login = "username";
-    password = "passwd";
-}
-```
-
-
-Readme.txt
 
 # ⚡ Dynamic Proxychains & BDIX Router
 
@@ -71,7 +45,8 @@ Edit `/etc/redsocks.conf`:
 sudo nano /etc/redsocks.conf
 ```
 
-Set your proxy IP, port, and credentials in the `redsocks { ... }` block:
+Modify the redsocks config file 
+`nano /etc/redsocks.conf` and Set your proxy IP, port, and credentials in the `redsocks { ... }` block:
 ```text
 redsocks {
     local_ip = 127.0.0.1;
