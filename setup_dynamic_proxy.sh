@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 #
 # setup_dynamic_proxy.sh
-# Supported tools: apt, apt-get, git, curl, wget, pip, pip3, go.
+# Final verified transparent proxy router.
+# Leaves /etc/resolv.conf and /etc/redsocks.conf completely untouched.
 
 set -euo pipefail
 
@@ -10,41 +11,85 @@ if [ "${EUID}" -ne 0 ]; then
     exit 1
 fi
 
-echo "[*] Step 1: Checking required packages..."
-MISSING_PKGS=()
-for pkg in proxychains4 curl git wget gawk python3-pip golang-go; do
-    if ! command -v "$pkg" &>/dev/null; then
-        MISSING_PKGS+=("$pkg")
-    fi
+echo "[*] Step 1: Installing required packages..."
+while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
+    sleep 2
 done
+apt update -y
+apt install -y redsocks iptables proxychains4 curl gawk
 
-if [ ${#MISSING_PKGS[@]} -gt 0 ]; then
-    echo "[*] Waiting for apt cache lock if held..."
-    while fuser /var/lib/dpkg/lock-frontend >/dev/null 2>&1; do
-        sleep 2
-    done
-    apt update -y
-    apt install -y "${MISSING_PKGS[@]}"
-else
-    echo "[+] All required packages are already installed."
+echo "[*] Step 2: Verifying /etc/redsocks.conf..."
+if [ ! -f /etc/redsocks.conf ]; then
+    echo "[!] Error: /etc/redsocks.conf not found. Please create it first."
+    exit 1
 fi
 
-echo "[*] Step 2: Creating the dynamic speed monitor script..."
+# Extract proxy IP directly from redsocks.conf to prevent routing loops
+PROXY_IP=$(grep -E '^\s*ip\s*=' /etc/redsocks.conf | head -n 1 | awk '{print $3}' | tr -d ';')
+echo "    -> Using Proxy IP from redsocks.conf: ${PROXY_IP}"
+
+systemctl restart redsocks
+systemctl enable redsocks
+
+echo "[*] Step 3: Cleaning up old tool wrappers and aliases..."
+rm -f /usr/local/bin/apt \
+      /usr/local/bin/apt-get \
+      /usr/local/bin/git \
+      /usr/local/bin/curl \
+      /usr/local/bin/wget \
+      /usr/local/bin/pip \
+      /usr/local/bin/pip3 \
+      /usr/local/bin/go
+
+for rc in /root/.bashrc /etc/bash.bashrc; do
+    if [ -f "$rc" ]; then
+        sed -i '/alias \(apt\|apt-get\|git\|curl\|wget\|pip\|pip3\|go\)=/d' "$rc"
+    fi
+done
+hash -r 2>/dev/null || true
+
+echo "[*] Step 4: Creating the dynamic monitor script (GitHub, Google, Cloudflare)..."
 cat << 'EOF' > /usr/local/bin/network_speed_monitor.sh
 #!/usr/bin/env bash
 
-STATUS_FILE="/run/fastest_connection"
 LOG_FILE="/var/log/network_speed_monitor.log"
+STATUS_FILE="/run/fastest_connection"
 
-# Candidate endpoints (Google, GitHub, Kali, Cloudflare)
+# Extract proxy IP directly from redsocks.conf to prevent routing loops
+PROXY_IP=$(grep -E '^\s*ip\s*=' /etc/redsocks.conf 2>/dev/null | head -n 1 | awk '{print $3}' | tr -d ';' || true)
+
+# Verified, multi-megabyte download targets (GitHub, Google, Cloudflare)
 CANDIDATE_URLS=(
-    "https://dl.google.com/linux/chrome/deb/dists/stable/main/binary-amd64/Packages.gz"
     "https://codeload.github.com/six2dez/reconftw/tar.gz/refs/heads/main"
-    "http://http.kali.org/kali/dists/kali-rolling/InRelease"
-    "https://speed.cloudflare.com/__down?bytes=5242880"
+    "https://dl.google.com/android/repository/platform-tools-latest-linux.zip"
+    "https://speed.cloudflare.com/__down?bytes=10485760"
 )
 
-# 1. Dynamically select the fastest responding server
+enable_transparent_proxy() {
+    iptables -t nat -N REDSOCKS 2>/dev/null || iptables -t nat -F REDSOCKS
+    
+    # Bypass local, private networks, and redsocks process itself
+    iptables -t nat -A REDSOCKS -d 127.0.0.0/8 -j RETURN
+    iptables -t nat -A REDSOCKS -d 192.168.0.0/16 -j RETURN
+    iptables -t nat -A REDSOCKS -d 10.0.0.0/8 -j RETURN
+    iptables -t nat -A REDSOCKS -m owner --uid-owner redsocks -j RETURN
+    [ -n "${PROXY_IP}" ] && iptables -t nat -A REDSOCKS -d "${PROXY_IP}" -j RETURN
+
+    # Redirect HTTP (80), HTTPS (443), and Git SSH (22) to redsocks
+    iptables -t nat -A REDSOCKS -p tcp --dport 80 -j REDIRECT --to-ports 12345
+    iptables -t nat -A REDSOCKS -p tcp --dport 443 -j REDIRECT --to-ports 12345
+    iptables -t nat -A REDSOCKS -p tcp --dport 22 -j REDIRECT --to-ports 12345
+
+    # Attach to OUTPUT chain
+    iptables -t nat -C OUTPUT -p tcp -j REDSOCKS 2>/dev/null || iptables -t nat -I OUTPUT -p tcp -j REDSOCKS
+}
+
+disable_transparent_proxy() {
+    while iptables -t nat -D OUTPUT -p tcp -j REDSOCKS 2>/dev/null; do :; done
+    iptables -t nat -F REDSOCKS 2>/dev/null || true
+}
+
+# 1. Dynamically select the fastest responding server of the real targets
 BEST_URL="${CANDIDATE_URLS[0]}"
 BEST_TIME=999
 
@@ -61,36 +106,26 @@ done
 
 TEST_URL="${BEST_URL}"
 
-# 2. Measure sustained wire speed (excluding connection setup latency)
-measure_wire_speed() {
+# 2. Benchmark sustained download throughput
+measure_speed() {
     local use_proxy="$1"
-    local curl_cmd=(/usr/bin/curl -s -L -o /dev/null --connect-timeout 4 --max-time 12)
+    local speed=0
 
     if [ "$use_proxy" = "true" ]; then
-        curl_cmd=(proxychains4 -q /usr/bin/curl -s -L -o /dev/null --connect-timeout 4 --max-time 12)
+        speed=$(proxychains4 -q /usr/bin/curl -s -L -o /dev/null -w "%{speed_download}" --connect-timeout 4 --max-time 5 "${TEST_URL}" 2>/dev/null || echo 0)
+    else
+        speed=$(/usr/bin/curl -s -L -o /dev/null -w "%{speed_download}" --connect-timeout 4 --max-time 5 "${TEST_URL}" 2>/dev/null || echo 0)
     fi
 
-    local stats
-    stats=$("${curl_cmd[@]}" -w "%{size_download} %{time_total} %{time_starttransfer}" "${TEST_URL}" 2>/dev/null || echo "0 0 0")
-
-    awk -v s="${stats}" 'BEGIN {
-        split(s, a, " ")
-        bytes = a[1] + 0
-        total_time = a[2] + 0
-        start_transfer = a[3] + 0
-        transfer_time = total_time - start_transfer
-
-        if (bytes > 0 && transfer_time > 0.001) {
-            printf "%.0f", bytes / transfer_time
-        } else {
-            print "0"
-        }
-    }'
+    speed=$(echo "${speed}" | tr -dc '0-9.' | tail -n 1)
+    [[ -z "${speed}" || ! "${speed}" =~ ^[0-9]+(\.[0-9]+)?$ ]] && speed=0
+    echo "${speed}"
 }
 
 # 3. Benchmark both connections
-DIRECT_SPEED=$(measure_wire_speed false)
-PROXY_SPEED=$(measure_wire_speed true)
+disable_transparent_proxy
+DIRECT_SPEED=$(measure_speed false)
+PROXY_SPEED=$(measure_speed true)
 
 # 4. Compare speeds (proxy wins ties)
 DECISION=$(awk -v p="${PROXY_SPEED}" -v d="${DIRECT_SPEED}" 'BEGIN {
@@ -101,11 +136,17 @@ DECISION=$(awk -v p="${PROXY_SPEED}" -v d="${DIRECT_SPEED}" 'BEGIN {
     }
 }')
 
-# 5. Atomically update the status file
+# 5. Apply transparent redirection if proxy won
+if [ "${DECISION}" = "proxy" ]; then
+    enable_transparent_proxy
+else
+    disable_transparent_proxy
+fi
+
 echo -n "${DECISION}" > "${STATUS_FILE}.tmp"
 mv -f "${STATUS_FILE}.tmp" "${STATUS_FILE}"
 
-# 6. Format and log
+# 6. Format and log in MiB/s
 DIRECT_MB=$(awk -v s="${DIRECT_SPEED}" 'BEGIN { printf "%.2f", s / 1048576 }')
 PROXY_MB=$(awk -v s="${PROXY_SPEED}" 'BEGIN { printf "%.2f", s / 1048576 }')
 TARGET_HOST=$(echo "${TEST_URL}" | awk -F[/:] '{print $4}')
@@ -115,47 +156,12 @@ EOF
 
 chmod +x /usr/local/bin/network_speed_monitor.sh
 
-echo "[*] Step 3: Installing command wrappers (/usr/local/bin)..."
-for cmd in apt apt-get git curl wget pip pip3 go; do
-    target="/usr/bin/${cmd}"
-    wrapper="/usr/local/bin/${cmd}"
-
-    [ -f "${target}" ] || continue
-
-    cat << EOF > "${wrapper}"
-#!/usr/bin/env bash
-STATUS="direct"
-[ -f /run/fastest_connection ] && STATUS=\$(cat /run/fastest_connection 2>/dev/null || echo "direct")
-
-if [ "\$STATUS" = "proxy" ] && command -v proxychains4 &>/dev/null; then
-    exec proxychains4 -q ${target} "\$@"
-else
-    exec ${target} "\$@"
-fi
-EOF
-    chmod +x "${wrapper}"
-done
-
-echo "[*] Step 4: Adding shell aliases to prevent Bash path caching..."
-for rc in /root/.bashrc /etc/bash.bashrc; do
-    if [ -f "$rc" ]; then
-        for alias_cmd in apt apt-get git curl wget pip pip3 go; do
-            if ! grep -q "alias ${alias_cmd}=" "$rc"; then
-                echo "alias ${alias_cmd}='/usr/local/bin/${alias_cmd}'" >> "$rc"
-            fi
-        done
-    fi
-done
-
-# Clear current Bash command cache
-hash -r 2>/dev/null || true
-
 echo "[*] Step 5: Configuring background systemd timer..."
 cat << 'EOF' > /etc/systemd/system/network-speed-monitor.service
 [Unit]
 Description=Network Speed Benchmark Monitor
-After=network-online.target
-Wants=network-online.target
+After=network-online.target redsocks.service
+Wants=network-online.target redsocks.service
 
 [Service]
 Type=oneshot
@@ -184,6 +190,6 @@ echo "[*] Step 6: Running initial benchmark..."
 CURRENT_STATUS=$(cat /run/fastest_connection)
 echo "=========================================================="
 echo "Setup successfully completed!"
-echo "Active route: ${CURRENT_STATUS}"
+echo "Active Route: ${CURRENT_STATUS}"
 tail -n 1 /var/log/network_speed_monitor.log
 echo "=========================================================="
