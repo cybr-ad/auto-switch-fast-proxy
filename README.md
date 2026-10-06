@@ -110,7 +110,7 @@ sudo rm -f /usr/local/bin/network_speed_monitor.sh /run/fastest_connection /var/
 
 *This project ensures maximum speed from BDIX proxies with zero manual switching. Add your proxy credentials in `/etc/redsocks.conf` and enjoy faster internet 🚀.*
 
-Displaying Readme.txt.
+
 
 
 
