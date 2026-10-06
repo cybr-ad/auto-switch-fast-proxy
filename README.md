@@ -59,6 +59,7 @@ redsocks {
 }
 ```
 Save and exit (`Ctrl+O`, `Enter`, `Ctrl+X`).
+Restart services `systemctl restart redsocks`
 
 ### 3. Run the Setup Script
 
