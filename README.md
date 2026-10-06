@@ -1,67 +1,132 @@
-# Dynamic Proxychains Router
-After setting this script you don't need to manually put `proxychains4` every command when you are downloading. It completely depends on your proxy speed.
-Automatically routes CLI downloads (`git`, `apt`, `curl`, `wget`) through `proxychains4` whenever the proxy is faster, with seamless fallback to direct internet. After installing proxychains4 , `nano /etc/proxychains4.conf` and remove hash before `strict_chain` then save it and exit .
+## Replace the redsocks config file 
+`nano /etc/redsocks.conf` and paste it change ip , port, user, passwd 
 
-## Quick Setup
-### 1. Requirements
-Ensure `proxychains4` and `curl` are installed:
-```bash
-sudo apt update && sudo apt install -y proxychains4 curl git wget
 ```
-*Ensure your proxy is configured in `/etc/proxychains4.conf` and setup fast proxy.*
----
-### 2. Main Setup
-Run the script `setup_dynamic_proxy.sh` and it will make a `network_speed_monitor.sh` in `/usr/local/bin` directory.
+base {
+    log_debug = off;
+    log_info = off;
+    log = "file:/var/log/redsocks.log";
+    daemon = on;
+    redirector = iptables;
+}
 
-Make it executable and run an initial test:
-```bash
-sudo chmod +x network_speed_monitor.sh
-sudo ./network_speed_monitor.sh
+redsocks {
+    local_ip = 127.0.0.1;
+    local_port = 12345;
+
+    ip = x.x.x.x;
+    port = yyyy;
+    type = socks5;
+
+    login = "username";
+    password = "passwd";
+}
 ```
-Verify connection status:
-```bash
-tail -n 1 /var/log/network_speed_monitor.log
-cat /run/fastest_connection
-```
----
-### 3. Verification
-Check this file should here `/usr/local/bin/` :
-`apt`, `apt-get`, `wget`, `curl`, `git`, `network_speed_monitor.sh`
-Test that commands route through the proxy automatically:
-```bash
-# Check your IP (should show proxy IP)
+
+
+
+ Dynamic Proxychains Router
+Automatically routes all system traffic through redsocks and iptables transparently whenever the proxy is faster, capturing downloads and network connections from any tool or user across the entire operating system with seamless fallback to direct internet.
+ Architectural Overview
+ Routing & Performance Comparison
++-----------------------------------------------------------------------+
+|                           System Applications                          |
+|                  (curl, git, apt, wget, browser, etc.)                 |
++-----------------------------------------------------------------------+
+                                    |                                    
+                                    v                                    
+                    +-------------------------------+                    
+                    | iptables (NAT PREROUTING/OUT) |                    
+                    +-------------------------------+                    
+                                    |                                    
+                 +------------------+------------------+                 
+                 |                                     |                 
+                 v (Proxy Active)                      v (Direct Fallback)
+      +---------------------+               +---------------------+      
+      | Redsocks (Port 12345) |               |  Direct Connection  |      
+      +---------------------+               +---------------------+      
+                 |                                     |                 
+                 v                                     v                 
+      +---------------------+               +---------------------+      
+      |   Upstream Proxy    |               |  Internet Gateways  |      
+      +---------------------+               +---------------------+      
+
+ Quick Setup Guide
+Feature
+Transparent Proxy (Redsocks)
+Standard Proxy Wrappers
+Scope
+System-wide (Kernel Level)
+Application Level
+Tool Compatibility
+100% (No configuration needed)
+Requires per-tool settings
+Fallback Mechanism
+Automatic direct routing
+Manual disconnection
+DNS Optimization
+Dynamic multi-provider benchmark
+Static local resolver
+
+
+1. Prerequisites
+Install the required packages:
+2. Configure Proxy Settings
+sudo apt update && sudo apt install -y redsocks iptables curl
+
+Create or edit /etc/redsocks.conf with your upstream proxy credentials:
+3. Install Monitoring Script
+sudo tee /etc/redsocks.conf > /dev/null << 'EOF'
+base {
+  log_debug = off;
+  log_info = on;
+  log = "syslog:daemon";
+  daemon = on;
+  redirector = iptables;
+}
+redsocks {
+  local_ip = 127.0.0.1;
+  local_port = 12345;
+  ip = 1.2.3.4;
+  port = 1080;
+  type = socks5;
+  login = "your_username";
+  password = "your_password";
+}
+EOF
+
+Deploy the speed monitor script to system binaries and make it executable:
+ Verification & Testing
+sudo cp network_speed_monitor.sh /usr/local/bin/
+sudo chmod +x /usr/local/bin/network_speed_monitor.sh
+sudo /usr/local/bin/network_speed_monitor.sh
+
+Verify active routing state and system connection details:
+ Uninstallation
+# Check active proxy IP redirection
 curl https://ifconfig.me
 
-# Test git clone (runs through proxy)
-git clone https://github.com/six2dez/reconftw.git /tmp/test-repo --depth=1
-rm -rf /tmp/test-repo
-```
----
-If you find any problem just reboot your system. Make sure `proxychains4` giving you proper speed before installation.
+# Check monitoring logs and active connection state
+tail -n 1 /var/log/network_speed_monitor.log
+cat /run/fastest_connection
 
-## Boosting Speed
-For better performance select better dns server. 
-`nano /etc/resolv.conf` then comment everything else and paste this :
-```
-nameserver 1.1.1.1
-nameserver 8.8.8.8
-```
+To cleanly remove firewall redirection rules, services, and restore system defaults:
 
-## Uninstallation (Restore Default)
-To remove all wrappers and restore original system defaults:
-```bash
 sudo systemctl disable --now network-speed-monitor.timer 2>/dev/null || true
 sudo rm -f /etc/systemd/system/network-speed-monitor.*
 sudo systemctl daemon-reload
 
-sudo rm -f /usr/local/bin/apt \
-           /usr/local/bin/apt-get \
-           /usr/local/bin/git \
-           /usr/local/bin/curl \
-           /usr/local/bin/wget \
-           /usr/local/bin/network_speed_monitor.sh
-
+sudo iptables -t nat -F REDSOCKS 2>/dev/null || true
+sudo iptables -t nat -D PREROUTING -p tcp -j REDSOCKS 2>/dev/null || true
+sudo iptables -t nat -D OUTPUT -p tcp -j REDSOCKS 2>/dev/null || true
+sudo systemctl stop redsocks
+sudo rm -f /usr/local/bin/network_speed_monitor.sh
 sudo rm -f /run/fastest_connection /var/log/network_speed_monitor.log
-```
-This project is to bypass BDIX proxy and ensure full speed from BDIX, just you have add proxy and credentials in `/etc/proxychains4.conf` file and you are good to enjoy faster internet 🚀.
+
+
+
+
+
+
+
 
