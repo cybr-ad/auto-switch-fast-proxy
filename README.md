@@ -2,9 +2,9 @@
 
 # ⚡ Dynamic Proxy Router & BDIX Auto-Switch
 
-**A smart, zero-touch transparent proxy router with dynamic failover and speed benchmarks for Kali Linux, Debian, and Ubuntu.**
+**A smart, zero-touch transparent proxy router with dynamic failover, mirror optimization, and speed benchmarks for all Debian-based systems (Kali, Debian, Ubuntu, Linux Mint, Pop!_OS, Parrot OS, Raspberry Pi OS, WSL2, Docker).**
 
-[![Platform](https://img.shields.io/badge/Platform-Kali%20%7C%20Debian%20%7C%20Ubuntu-blue?logo=linux&logoColor=white)](#)
+[![Platform](https://img.shields.io/badge/Platform-Universal%20Debian%20%7C%20Ubuntu%20%7C%20Kali%20%7C%20Mint-blue?logo=linux&logoColor=white)](#)
 [![Routing](https://img.shields.io/badge/Routing-Transparent%20iptables%20%2B%20Redsocks-orange)](#)
 [![DNS](https://img.shields.io/badge/DNS-Auto%20Cloudflare%201.1.1.1%20%2B%20Google%208.8.8.8-green)](#)
 [![Shell](https://img.shields.io/badge/Script-Bash-4EAA25?logo=gnu-bash&logoColor=white)](#)
@@ -33,20 +33,24 @@ When using high-speed **BDIX** or **SOCKS5/HTTP proxies**, traditional tools lik
 - ⚡ **Zero Command Prefixing**: Run `apt`, `git`, `curl`, `pip`, `docker`, and browsers normally without typing `proxychains`.
 - ⏱️ **Automatic Speed Benchmarking**: Tests sustained wire speed every 10 minutes against BDIX & CDN endpoints.
 - 🛡️ **Instant Failover**: If your proxy slows down, drops, or loses authentication, your connection instantly falls back to direct internet.
-- 🌐 **Optimized DNS**: Automatically cleans `/etc/resolv.conf` and sets ultra-fast Cloudflare (`1.1.1.1`) and Google (`8.8.8.8`) nameservers.
+- 🌐 **Dynamic DNS Benchmarking**: Actively benchmarks candidate DNS servers (Cloudflare, Google, Quad9, OpenDNS, and local ISP DNS), measures real-time query latency, and configures `/etc/resolv.conf` with the fastest nameservers.
+- 📦 **Universal Package Mirror Optimizer**: Automatically fixes slow regional mirrors and redirects in both modern deb822 (`/etc/apt/sources.list.d/*.sources`) and legacy `/etc/apt/sources.list` to high-speed global CDN mirrors (`kali.download`, `deb.debian.org`).
+- 🔄 **Universal Init Support**: Supports `systemd` timers as well as `cron` fallback for Docker containers, WSL, and non-systemd distros.
 - 🔒 **LAN & Docker Safe**: Automatically bypasses RFC 1918 / RFC 6598 private subnets (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`, Docker bridges, Tailscale).
 
 ---
 
 ## 📊 Feature Comparison
 
-| Feature | Standard `proxychains4` | Manual Redsocks | ⚡ Dynamic Proxy Router (v2.3) |
+| Feature | Standard `proxychains4` | Manual Redsocks | ⚡ Dynamic Proxy Router (v3.0) |
 | :--- | :---: | :---: | :---: |
 | **Command Prefixing** | ❌ Required every time | ✅ Automatic | ✅ **100% Zero-Touch** |
 | **Supported Tools** | ⚠️ Partial (breaks statically linked) | ✅ All TCP tools | ✅ **Every tool (`apt`, `git`, `docker`, etc.)** |
 | **Failover on Drop** | ❌ Connection hangs / aborts | ❌ Total blackout | ✅ **Seamless instant fallback to direct** |
 | **Speed Optimization** | ❌ None | ❌ Manual | ✅ **Benchmarks & picks fastest route** |
-| **DNS Optimization** | ⚠️ Can leak or stall | ❌ Unmanaged | ✅ **Auto-configured (`1.1.1.1`, `8.8.8.8`)** |
+| **DNS Optimization** | ⚠️ Can leak or stall | ❌ Unmanaged | ✅ **Auto-benchmarks & sets fastest DNS** |
+| **Mirror Optimization** | ❌ None | ❌ None | ✅ **Auto-detects deb822 & fast CDNs** |
+| **OS Compatibility** | ⚠️ Partial | ⚠️ Manual config | ✅ **Universal Debian, Ubuntu, Kali, Mint** |
 | **Local LAN / Docker** | ⚠️ Often intercepted | ⚠️ Requires manual rules | ✅ **Automatic RFC 1918 bypass** |
 | **Authentication** | ⚠️ Config file editing | ⚠️ Manual config | ✅ **Interactive wizard & CLI flags** |
 
@@ -115,8 +119,8 @@ Options:
   3) Keep current settings as-is
 Select option [1/2/3] (default: 1): 1
 
-Enter Proxy IP or Host [114.130.99.148]: 114.130.99.148
-Enter Proxy Port [9169]: 9169
+Enter Proxy IP or Host: 198.51.100.50
+Enter Proxy Port: 1080
 Enter Proxy Username (leave blank if none): myuser
 Enter Proxy Password (leave blank if none): mypass
 Enter Proxy Type (socks5/socks4/http-connect) [socks5]: socks5
@@ -127,10 +131,10 @@ Set up everything in a single command:
 
 ```bash
 # SOCKS5 proxy with authentication:
-sudo bash ./setup_dynamic_proxy.sh --ip 114.130.99.148 --port 9169 --user myuser --pass mypass
+sudo bash ./setup_dynamic_proxy.sh --ip 198.51.100.50 --port 1080 --user myuser --pass mypass
 
 # Anonymous proxy:
-sudo bash ./setup_dynamic_proxy.sh --ip 103.150.100.5 --port 1080
+sudo bash ./setup_dynamic_proxy.sh --ip 198.51.100.50 --port 1080
 ```
 
 #### Option C: Manual Editing (`nano`)
@@ -150,11 +154,17 @@ sudo bash ./setup_dynamic_proxy.sh
 The script includes built-in controls for monitoring, benchmarking, and routing:
 
 ```bash
-# Check current active route, redsocks status, and last benchmark
+# Check current active route, redsocks status, DNS latency, and last benchmark
 sudo bash ./setup_dynamic_proxy.sh --status
 
-# Run an immediate speed benchmark test
+# Run full connection benchmark & verify all download protocols (apt, go, curl, wget, git, pip)
 sudo bash ./setup_dynamic_proxy.sh --test
+
+# Benchmark all candidate DNS servers and apply the fastest to /etc/resolv.conf
+sudo bash ./setup_dynamic_proxy.sh --dns
+
+# Optimize package mirrors to global high-speed CDN (deb822 & sources.list)
+sudo bash ./setup_dynamic_proxy.sh --optimize-mirrors
 
 # Force proxy mode ON immediately (override benchmark)
 sudo bash ./setup_dynamic_proxy.sh --force-proxy
@@ -168,9 +178,32 @@ tail -f /var/log/network_speed_monitor.log
 
 ---
 
-## 🔍 Verification
+## 🔍 Automated Protocol Verification
 
-Once installed, use standard commands **without** `proxychains4`:
+Immediately upon completing setup, the router runs an **automated multi-protocol test suite** ensuring that every downloading protocol and tool operates at peak wire speed:
+
+```text
+================================================================================
+🚀 Multi-Protocol Download Verification
+================================================================================
+Routing Mode:      PROXY [Iptables: ACTIVE (Transparent Proxying)]
+Active DNS:        1.1.1.1 8.8.8.8
+--------------------------------------------------------------------------------
+Protocol / Tool      Endpoint Tested            Speed / Latency      Status
+--------------------------------------------------------------------------------
+APT (Package Mgr)    kali.download (CDN)        5.82 MiB/s (38ms)    ✔ PASS [FAST]
+CURL (HTTP/HTTPS)    speed.cloudflare.com       6.14 MiB/s (22ms)    ✔ PASS [FAST]
+WGET (File Retrieval)speed.cloudflare.com       6.08 MiB/s (25ms)    ✔ PASS [FAST]
+GO (Golang Modules)  proxy.golang.org (CDN)     5.40 MiB/s (41ms)    ✔ PASS [FAST]
+GIT (GitHub HTTPS)   github.com (Smart HTTP)    0.18s (180ms)        ✔ PASS [FAST]
+PIP (Python PyPI)    pypi.org / PyPI CDN        5.95 MiB/s (33ms)    ✔ PASS [FAST]
+--------------------------------------------------------------------------------
+✔ All download protocols are routed transparently via the fastest active path.
+================================================================================
+```
+
+### Manual Verification Anytime
+You can test any tool normally **without** `proxychains4`:
 
 ### 1. Verify Public IP
 ```bash
@@ -178,17 +211,26 @@ Once installed, use standard commands **without** `proxychains4`:
 curl https://ifconfig.me
 ```
 
-### 2. Test High-Speed Download (apt & git)
+### 2. Test Package Manager (`apt`)
 ```bash
-# Test package manager through proxy:
-sudo apt update
+# APT is optimized with 0-pipeline depth and edge CDN mirrors
+sudo apt update && sudo apt upgrade -y
+```
 
-# Test git clone throughput:
-git clone https://github.com/six2dez/reconftw.git /tmp/test-repo --depth=1
+### 3. Test Golang (`go`)
+```bash
+# Go modules are fetched through high-speed transparent proxy
+go install -v github.com/projectdiscovery/httpx/cmd/httpx@latest
+```
+
+### 4. Test Git (`git`)
+```bash
+# Clone GitHub repositories with full line throughput
+git clone https://github.com/torvalds/linux.git --depth=1 /tmp/test-repo
 rm -rf /tmp/test-repo
 ```
 
-### 3. Check Route Winner & Speed Logs
+### 5. Check Route Winner & Speed Logs
 ```bash
 # View active winner:
 cat /run/fastest_connection
@@ -221,8 +263,8 @@ base {
 redsocks {
     local_ip = 127.0.0.1;
     local_port = 12345;
-    ip = 114.130.99.148;
-    port = 9169;
+    ip = 198.51.100.50;
+    port = 1080;
     type = socks5;
     login = "myuser";       // omit or delete if no auth
     password = "mypass";   // omit or delete if no auth
