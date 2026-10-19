@@ -93,7 +93,7 @@ flowchart TD
 ### 1. Clone the Repository
 
 ```bash
-git clone https://github.com/your-username/auto-switch-fast-proxy.git
+git clone https://github.com/cybr-ad/auto-switch-fast-proxy.git
 cd auto-switch-fast-proxy
 chmod +x setup_dynamic_proxy.sh
 ```
