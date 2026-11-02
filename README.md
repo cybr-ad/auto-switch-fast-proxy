@@ -96,18 +96,15 @@ flowchart TD
 git clone https://github.com/cybr-ad/auto-switch-fast-proxy.git
 cd auto-switch-fast-proxy
 chmod +x setup_dynamic_proxy.sh
+sudo bash ./setup_dynamic_proxy.sh
 ```
 
-### 2. Run Setup
+### 2. Configuration
 
 Choose any of the following 3 ways to configure:
 
-#### Option A: Interactive Wizard (Recommended)
+# Option A: Interactive Wizard (Recommended)
 Simply launch the setup script. It will detect your settings and ask for your proxy IP, port, and credentials:
-
-```bash
-sudo bash ./setup_dynamic_proxy.sh
-```
 
 ```text
 ==================================================
@@ -126,7 +123,7 @@ Enter Proxy Password (leave blank if none): mypass
 Enter Proxy Type (socks5/socks4/http-connect) [socks5]: socks5
 ```
 
-#### Option B: Automated One-Liner (CLI Flags)
+# Option B: Automated One-Liner (CLI Flags)
 Set up everything in a single command:
 
 ```bash
@@ -137,7 +134,7 @@ sudo bash ./setup_dynamic_proxy.sh --ip 198.51.100.50 --port 1080 --user myuser 
 sudo bash ./setup_dynamic_proxy.sh --ip 198.51.100.50 --port 1080
 ```
 
-#### Option C: Manual Editing (`nano`)
+# Option C: Manual Editing (`nano`)
 If you prefer editing `/etc/redsocks.conf` directly:
 ```bash
 sudo nano /etc/redsocks.conf
